@@ -1,51 +1,45 @@
 from __future__ import print_function
 
+import os.path
 import os
-import pickle
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
 from base64 import urlsafe_b64decode, urlsafe_b64encode
-
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
-from email.mime.audio import MIMEAudio
-from email.mime.base import MIMEBase
-from mimetypes import guess_type as guess_mime_type
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://mail.google.com/']
 
-def gmail_authenticate():
+
+def gmail_auth():
+    """Shows basic usage of the Gmail API.
+    Lists the user's Gmail labels.
+    """
     creds = None
-    # the file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first time
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
-            creds = pickle.load(token)
-    # if there are no (valid) credentials availablle, let the user log in.
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        # save the credentials for the next run
-        with open("token.pickle", "wb") as token:
-            pickle.dump(creds, token)
+        # Save the credentials for the next run
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
     return build('gmail', 'v1', credentials=creds)
 
-# get the Gmail API service
-service = gmail_authenticate()
-
+service = gmail_auth()
 
 def search_messages(service, query):
-    result = service.users().messages().list(userId='me',q=query).execute()
+    result = service.users().messages().list(userId='me', q="valuation").execute()
     messages = [ ]
     if 'messages' in result:
         messages.extend(result['messages'])
@@ -68,7 +62,6 @@ def get_size_format(b, factor=1024, suffix="B"):
             return f"{b:.2f}{unit}{suffix}"
         b /= factor
     return f"{b:.2f}Y{suffix}"
-
 
 def clean(text):
     # clean text for creating a folder
@@ -115,8 +108,7 @@ def parse_parts(service, parts, folder_name, message):
                             # and make another request to get the attachment itself
                             print("Saving the file:", filename, "size:", get_size_format(file_size))
                             attachment_id = body.get("attachmentId")
-                            attachment = service.users().messages() \
-                                        .attachments().get(id=attachment_id, userId='me', messageId=message['id']).execute()
+                            attachment = service.users().messages().attachments().get(id=attachment_id, userId='me', messageId=message['id']).execute()
                             data = attachment.get("data")
                             filepath = os.path.join(folder_name, filename)
                             if data:
@@ -179,9 +171,6 @@ def read_message(service, message):
     parse_parts(service, parts, folder_name, message)
     print("="*50)
 
-    results = search_messages(service, "valuation")
-
-    for msg in results:
-        read_message(service, msg)
-       
-    
+results = search_messages(service, "valuation")
+for msg in results:
+    read_message(service, msg)
