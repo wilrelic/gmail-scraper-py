@@ -39,7 +39,7 @@ def gmail_auth():
 service = gmail_auth()
 
 def search_messages(service, query):
-    result = service.users().messages().list(userId='me', q="valuation").execute()
+    result = service.users().messages().list(userId='me', q=query).execute()
     messages = [ ]
     if 'messages' in result:
         messages.extend(result['messages'])
